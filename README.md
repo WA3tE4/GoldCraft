@@ -40,6 +40,8 @@ A tiny <b>Terraria-inspired</b> survival sandbox built entirely with
 >Sneak Peek at the next update.
 >
 ><img width="1598" height="906" alt="image" src="https://github.com/user-attachments/assets/a0840bb7-cb01-4649-9f96-e8e301ffb4a2" />
+><img width="1594" height="906" alt="image" src="https://github.com/user-attachments/assets/d8fa5a3b-7022-47a5-b37b-f4a7a7cb876e" />
+
 
 
 
