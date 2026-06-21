@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terreria — a tiny Terraria-like</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0b0d17;
+      overflow: hidden;
+      height: 100%;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      color: #cdd6f4;
+    }
+    #game {
+      display: block;
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+    #help {
+      position: fixed;
+      left: 10px;
+      bottom: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      opacity: 0.65;
+      pointer-events: none;
+      text-shadow: 0 1px 2px #000;
+    }
+    kbd {
+      background: #313244;
+      border-radius: 3px;
+      padding: 0 4px;
+      border: 1px solid #45475a;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="help">
+    <kbd>A</kbd>/<kbd>D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp;
+    <kbd>LMB</kbd> mine/attack &nbsp; <kbd>RMB</kbd> place/eat/trade &nbsp;
+    <kbd>1</kbd>–<kbd>5</kbd> / scroll select &nbsp;
+    <kbd>E</kbd> inventory &amp; craft &nbsp;
+    <kbd>M</kbd> mute &nbsp;
+    <kbd>F3</kbd> debug &nbsp; <kbd>F5</kbd> save &nbsp; <kbd>F9</kbd> load
+  </div>
+  <script type="module" src="./src/game.js"></script>
+</body>
+</html>
