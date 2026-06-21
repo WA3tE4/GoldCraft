@@ -35,7 +35,12 @@ A tiny <b>Terraria-inspired</b> survival sandbox built entirely with
 > Visuals.
 
 
-<img width="1279" height="904" alt="image" src="https://github.com/user-attachments/assets/aace053a-f62a-4de9-94dc-f49b1ef376f1" />
+> <img width="1279" height="904" alt="image" src="https://github.com/user-attachments/assets/aace053a-f62a-4de9-94dc-f49b1ef376f1" />
+
+>Sneak Peek at the next update.
+>
+><img width="1598" height="906" alt="image" src="https://github.com/user-attachments/assets/a0840bb7-cb01-4649-9f96-e8e301ffb4a2" />
+
 
 
 ---
