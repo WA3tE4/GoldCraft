@@ -40,6 +40,8 @@ export const TILE_IDS = {
   SNOW: 33,        // tundra surface cap
   ICE: 34,         // frozen ponds, slick blue
   PUMPKIN: 35,     // autumn gourd, bakes into pie
+  BED: 36,         // right-click to set spawn + save the game
+  CHEST: 37,       // right-click to open a storage container
 };
 
 // Background wall ids, stored in a separate grid from foreground tiles.
@@ -106,6 +108,10 @@ export const TILES = {
   [T.SNOW]:       { name: "Snow",       solid: true,  hardness: 0.4,  color: "#e8f0f7", mineable: true },
   [T.ICE]:        { name: "Ice",        solid: true,  hardness: 0.5,  color: "#9fcfe6", mineable: true, glass: true },
   [T.PUMPKIN]:    { name: "Pumpkin",    solid: true,  hardness: 0.6,  color: "#d97a26", mineable: true },
+  // bed: walk-through furniture; right-click sets your spawn point and saves
+  [T.BED]:        { name: "Bed",        solid: false, hardness: 0.5,  color: "#b5483f", mineable: true },
+  // chest: solid furniture; right-click opens a storage grid
+  [T.CHEST]:      { name: "Chest",      solid: true,  hardness: 0.8,  color: "#8a5a2b", mineable: true },
 };
 
 export function isClimbable(id) { return !!tileDef(id).climbable; }
@@ -271,6 +277,8 @@ export const ITEMS = {
   snow:       { name: "Snow",       kind: "block", tile: T.SNOW,       color: "#e8f0f7", glyph: "❄" },
   ice:        { name: "Ice",        kind: "block", tile: T.ICE,        color: "#9fcfe6", glyph: "❄" },
   pumpkin:    { name: "Pumpkin",    kind: "block", tile: T.PUMPKIN,    color: "#d97a26", icon: "🎃" },
+  bed:        { name: "Bed",        kind: "block", tile: T.BED,        color: "#b5483f", icon: "🛏" },
+  chest:      { name: "Chest",      kind: "block", tile: T.CHEST,      color: "#8a5a2b", icon: "🧰" },
 
   // background walls (placed in the wall layer, don't collide)
   wood_wall:  { name: "Wood Wall",  kind: "wall", wall: WALL_IDS.WOOD,  color: "#4a371f", glyph: "▦" },
@@ -314,7 +322,7 @@ export const TILE_DROPS = {
   [T.GOLD_ORE]: "gold_ore", [T.DIAMOND_ORE]: "diamond",
   [T.TALL_GRASS]: "plant_fiber", [T.FLOWER]: "flower", [T.BERRY_BUSH]: "berries",
   [T.MUSHROOM]: "mushroom", [T.CACTUS]: "cactus", [T.VINE]: "vine",
-  [T.SNOW]: "snow", [T.ICE]: "ice", [T.PUMPKIN]: "pumpkin",
+  [T.SNOW]: "snow", [T.ICE]: "ice", [T.PUMPKIN]: "pumpkin", [T.BED]: "bed", [T.CHEST]: "chest",
 };
 
 // Map a broken wall id -> the item it drops.
