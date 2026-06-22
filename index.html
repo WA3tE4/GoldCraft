@@ -11,6 +11,8 @@
       background: #0b0d17;
       overflow: hidden;
       height: 100%;
+      overscroll-behavior: none;   /* no pull-to-refresh / rubber-banding */
+      touch-action: manipulation;  /* kill double-tap zoom delay */
       font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
       color: #cdd6f4;
     }
@@ -45,9 +47,12 @@
       position: fixed;
       inset: 0;
       display: flex;
-      align-items: center;
+      align-items: flex-start;       /* panel uses margin:auto to center when it fits */
       justify-content: center;
-      overflow: hidden;
+      overflow-y: auto;              /* scroll on short (landscape phone) screens */
+      -webkit-overflow-scrolling: touch;
+      padding: 16px 0;
+      box-sizing: border-box;
       background:
         radial-gradient(1000px 520px at 50% -8%, rgba(247, 211, 94, 0.10), transparent 60%),
         radial-gradient(1400px 900px at 50% 118%, #161b33 0%, #0b0d17 55%),
@@ -77,6 +82,7 @@
     }
     .panel {
       position: relative;
+      margin: auto;                  /* vertical centering that still allows scroll */
       width: min(440px, 92vw);
       background: linear-gradient(180deg, rgba(23, 27, 42, 0.92), rgba(14, 17, 28, 0.94));
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -215,6 +221,50 @@
       right: max(12px, env(safe-area-inset-right));
       width: 52px; height: 52px; font-size: 24px;
     }
+
+    /* Native search field overlaid on the canvas search box (touch only). */
+    #searchBox {
+      display: none;
+      position: fixed; z-index: 6; box-sizing: border-box;
+      font: 13px ui-monospace, "Cascadia Code", Consolas, monospace;
+      color: #cdd6f4; background: #0c0f18;
+      border: 1px solid #4257a8; border-radius: 6px;
+      padding: 0 8px; outline: none;
+    }
+
+    /* Rotate-to-landscape nudge. */
+    #rotate { display: none; }
+    @media (orientation: portrait) {
+      body.touch.playing #rotate {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; inset: 0; z-index: 20;
+        background: rgba(8, 10, 18, 0.94); color: #cdd6f4; text-align: center;
+      }
+    }
+    .rotate-card { font-size: 22px; line-height: 1.7; }
+    .rotate-card small { font-size: 13px; opacity: 0.6; }
+
+    /* First-run touch controls guide. */
+    #touchHelp {
+      display: none;
+      position: fixed; inset: 0; z-index: 15;
+      align-items: center; justify-content: center;
+      background: rgba(8, 10, 18, 0.78); backdrop-filter: blur(3px);
+      padding: 16px; box-sizing: border-box;
+    }
+    #touchHelp.show { display: flex; }
+    .th-card {
+      width: min(460px, 94vw);
+      background: linear-gradient(180deg, rgba(23, 27, 42, 0.96), rgba(14, 17, 28, 0.97));
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); padding: 20px 22px;
+    }
+    .th-title {
+      text-align: center; font-size: 18px; font-weight: 700; color: #f7d35e;
+      margin-bottom: 12px;
+    }
+    .th-list { list-style: none; margin: 0 0 16px; padding: 0; font-size: 13.5px; line-height: 2; }
+    .th-list b { color: #fff; }
   </style>
 </head>
 <body>
@@ -245,6 +295,30 @@
       <button class="tc-btn tc-jump" data-key="Space" aria-label="Jump">▲</button>
     </div>
     <button class="tc-btn tc-close" data-tap="esc" aria-label="Close menu">✕</button>
+  </div>
+
+  <!-- Real text field overlaid on the canvas crafting search box, so phones get
+       a native keyboard. Positioned/shown by game.js only on touch + inventory. -->
+  <input id="searchBox" type="text" inputmode="search" enterkeyhint="search"
+         autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+         placeholder="search…" />
+
+  <!-- Nudge to rotate; only on touch phones held in portrait. -->
+  <div id="rotate"><div class="rotate-card">↻<br />Rotate your device<br /><small>GoldCraft plays best in landscape</small></div></div>
+
+  <!-- First-time touch controls guide. Shown once (see menu.js). -->
+  <div id="touchHelp">
+    <div class="th-card">
+      <div class="th-title">How to play on touch</div>
+      <ul class="th-list">
+        <li><b>◄ ►</b> move &nbsp;·&nbsp; <b>▲</b> jump &nbsp;·&nbsp; <b>▼</b> climb down</li>
+        <li><b>Touch the world</b> to mine / attack</li>
+        <li><b>⛏ / ▦</b> switch between <b>mine</b> and <b>build/use</b> (place blocks, eat, talk, TVs)</li>
+        <li><b>🎒</b> inventory &amp; crafting &nbsp;·&nbsp; tap a slot at the bottom to equip</li>
+        <li><b>✕</b> closes menus &nbsp;·&nbsp; <b>⏸</b> (top-right) pauses</li>
+      </ul>
+      <button id="touchHelpOk" class="menu-btn primary" style="justify-content:center">Got it — let's play</button>
+    </div>
   </div>
 
   <script type="module" src="./src/menu.js"></script>
