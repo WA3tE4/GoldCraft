@@ -178,9 +178,38 @@ function settingsView() {
     );
   };
 
+  // Fullscreen is special: it needs a user gesture and must mirror the real
+  // fullscreen state (the player can drop out with Esc/F11), so it drives the
+  // Fullscreen API directly instead of being a stored boolean.
+  const fullscreenToggle = () => {
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const sw = el("div", { className: "switch" + (isFs() ? " on" : "") }, el("div", { className: "knob" }));
+    const sync = () => sw.classList.toggle("on", isFs());
+    sw.onclick = async () => {
+      try {
+        if (isFs()) {
+          await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        } else {
+          const r = document.documentElement;
+          await (r.requestFullscreen || r.webkitRequestFullscreen).call(r);
+        }
+      } catch (e) { /* request can be rejected (e.g. iOS Safari) — ignore */ }
+      sync();
+    };
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
+    return el("div", { className: "toggle" },
+      el("div", {},
+        el("div", { textContent: "⛶ Fullscreen" }),
+        el("small", { style: "opacity:.5", textContent: "Fill the screen (Esc or F11 to exit)" })),
+      sw,
+    );
+  };
+
   panel(
     brand(),
     el("div", { className: "tagline", textContent: "Settings" }),
+    fullscreenToggle(),
     toggle("🐞 Debug overlay", "debug", "FPS / position / world info (toggle in-game with F3)"),
     toggle("🔊 Sound", "sound", "Music & effects (toggle in-game with M)"),
     toggle("🎬 Screen shake", "shake", "Camera kick on hits and explosions"),
