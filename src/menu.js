@@ -7,6 +7,10 @@ import {
 } from "./save.js";
 import { Sound } from "./sound.js";
 
+// Touch devices get on-screen controls + the landscape nudge from the start.
+if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches)
+  document.body.classList.add("touch");
+
 const root = document.getElementById("menu");
 const helpEl = document.getElementById("help");
 const canvas = document.getElementById("game");
@@ -39,9 +43,21 @@ function boot(opts) {
   canvas.style.display = "block";
   document.body.classList.add("playing"); // reveals on-screen controls on touch
   helpEl.style.display = settings.controls ? "block" : "none";
+  maybeShowTouchHelp();
   Sound.enabled = settings.sound;
   const game = new Game(opts);
   game.applySettings(settings);
+}
+
+// On touch devices, show the controls guide once (until the player dismisses it).
+function maybeShowTouchHelp() {
+  if (!document.body.classList.contains("touch")) return;
+  if (localStorage.getItem("gc_touchHelpSeen")) return;
+  const ov = document.getElementById("touchHelp");
+  const ok = document.getElementById("touchHelpOk");
+  if (!ov || !ok) return;
+  ov.classList.add("show");
+  ok.onclick = () => { ov.classList.remove("show"); localStorage.setItem("gc_touchHelpSeen", "1"); };
 }
 
 // ---- main menu ----
