@@ -58,7 +58,7 @@ export class Renderer {
 
   // On touch devices the hotbar rides above the on-screen thumb buttons so it
   // stays tappable and clear of the jump / move clusters.
-  get hotbarLift() { return document.body.classList.contains("touch") ? 96 : 0; }
+  get hotbarLift() { return document.body.classList.contains("touch") ? 24 : 0; }
 
   addShake(mag) { if (this.shakeEnabled) this.shake = Math.min(14, Math.max(this.shake, mag)); }
 
