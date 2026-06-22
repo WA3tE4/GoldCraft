@@ -31,6 +31,13 @@ export class Game {
     this.input = new Input(this.canvas);
     this.renderer = new Renderer(this.canvas);
 
+    // Native search field for touch devices (see updateSearchBox).
+    this.searchBox = document.getElementById("searchBox");
+    if (this.searchBox) this.searchBox.addEventListener("input", () => {
+      this.craftSearch = this.searchBox.value;
+      this.craftScroll = 0;
+    });
+
     this.worldName = opts.worldName || "World";
     this.mode = opts.mode || "survival";
     this.creative = this.mode === "creative";
@@ -318,6 +325,30 @@ export class Game {
     if (s !== this.craftSearch) { this.craftSearch = s; this.craftScroll = 0; }
   }
 
+  // On touch devices, overlay a real <input> on the canvas search box so the
+  // phone keyboard works. It tracks the search box's on-screen position and
+  // feeds craftSearch via its "input" listener (wired in the constructor).
+  updateSearchBox() {
+    const el = this.searchBox;
+    if (!el) return;
+    const touch = document.body.classList.contains("touch");
+    if (touch && this.ui === "inv") {
+      const L = this.renderer.invLayout();
+      const r = this.renderer.searchRect(L);
+      const c = this.canvas.getBoundingClientRect();
+      const s = c.width / this.canvas.width; // CSS px per canvas px (usually 1)
+      el.style.display = "block";
+      el.style.left = `${c.left + r.x * s}px`;
+      el.style.top = `${c.top + r.y * s}px`;
+      el.style.width = `${r.w * s}px`;
+      el.style.height = `${r.h * s}px`;
+      if (el.value !== this.craftSearch) el.value = this.craftSearch;
+    } else if (el.style.display !== "none") {
+      el.style.display = "none";
+      el.blur();
+    }
+  }
+
   // If the selected hotbar slot changed since last frame, pop the item's name
   // up just above the hotbar for ~2.2s so the player sees what they switched to.
   updateItemSwitch() {
@@ -396,6 +427,14 @@ export class Game {
     } else {
       input.uiZones = [];
     }
+    // The crafting/creative list scrolls with a vertical drag in this column.
+    if (this.ui === "inv") {
+      const L = this.renderer.invLayout();
+      input.scrollZone = { x: L.craftX, y: L.y0, w: L.craftW, h: L.gridH + 30 };
+    } else {
+      input.scrollZone = null;
+    }
+    this.updateSearchBox();
     this.attackCd = Math.max(0, this.attackCd - dt);
     this.shootCd = Math.max(0, this.shootCd - dt);
     this._pickHintCd = Math.max(0, this._pickHintCd - dt);
