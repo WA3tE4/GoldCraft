@@ -25,6 +25,7 @@ const BUFF_META = {
   high:     { label: "High",       color: "#69b34c" },
   wired:    { label: "Wired",      color: "#dbeafe" },
   cracked:  { label: "CRACKED",    color: "#fca5a5" },
+  chilled:  { label: "Chilled",    color: "#9fd6ff" },
 };
 
 // Owns the camera and all drawing: culled tiles, smooth lighting, parallax sky,
@@ -609,7 +610,7 @@ export class Renderer {
 
         if (id === TILE_IDS.CROP || id === TILE_IDS.BANNER || id === TILE_IDS.TALL_GRASS ||
             id === TILE_IDS.FLOWER || id === TILE_IDS.BERRY_BUSH || id === TILE_IDS.MUSHROOM ||
-            id === TILE_IDS.VINE) {
+            id === TILE_IDS.VINE || id === TILE_IDS.BED) {
           // See-through decorations: show whatever's behind, then the sprite.
           const wid = world.wallAt(tx, ty);
           if (wid) this._drawWall(wid, sx, sy, tx, ty);
@@ -620,6 +621,7 @@ export class Renderer {
           else if (id === TILE_IDS.FLOWER) this.drawFlower(sx, sy, tx, ty, t);
           else if (id === TILE_IDS.BERRY_BUSH) this.drawBerryBush(sx, sy, tx, ty);
           else if (id === TILE_IDS.MUSHROOM) this.drawMushroom(sx, sy, tx, ty);
+          else if (id === TILE_IDS.BED) this.drawBed(sx, sy, tx, ty);
           else this.drawVine(sx, sy, tx, ty, t);
           continue;
         }
@@ -661,11 +663,25 @@ export class Renderer {
 
         if (id === TILE_IDS.TORCH) this.drawTorch(sx, sy, t);
         if (id === TILE_IDS.TNT) this.drawTnt(sx, sy, t);
+        if (id === TILE_IDS.CHEST) this.drawChestTile(sx, sy);
         if (id === TILE_IDS.CACTUS) this.drawCactusDetail(sx, sy, tx, ty);
         if (id === TILE_IDS.PUMPKIN) this.drawPumpkinDetail(sx, sy, tx, ty);
         if (id === TILE_IDS.SNOW) this.drawSnowDetail(sx, sy, tx, ty);
       }
     }
+  }
+
+  // A wooden chest: planked box with a lid band, iron straps, and a latch.
+  drawChestTile(sx, sy) {
+    const ctx = this.ctx;
+    ctx.fillStyle = "#6e451f"; ctx.fillRect(sx + 1, sy + 4, TILE - 2, TILE - 5);   // body
+    ctx.fillStyle = "#86592a"; ctx.fillRect(sx + 1, sy + 2, TILE - 2, 4);          // lid
+    ctx.fillStyle = "#5a3818"; ctx.fillRect(sx + 1, sy + 6, TILE - 2, 1);          // lid seam
+    ctx.fillStyle = "#caa15a";                                                      // iron straps
+    ctx.fillRect(sx + 3, sy + 2, 1.5, TILE - 3);
+    ctx.fillRect(sx + TILE - 5, sy + 2, 1.5, TILE - 3);
+    ctx.fillStyle = "#e6c477"; ctx.fillRect(sx + TILE / 2 - 1, sy + 6, 2, 3);      // latch
+    ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(sx + 1, sy + 2, TILE - 2, 1);
   }
 
   drawLadder(sx, sy) {
@@ -676,6 +692,23 @@ export class Renderer {
     ctx.fillStyle = "#a8854a";
     ctx.fillRect(sx + 2, sy + 3, TILE - 4, 2);     // rungs
     ctx.fillRect(sx + 2, sy + 9, TILE - 4, 2);
+  }
+
+  // A cozy little bed: dark frame, red mattress, white pillow, sitting low in the tile.
+  drawBed(sx, sy, tx, ty) {
+    const ctx = this.ctx;
+    const top = sy + 6;                 // bed sits in the lower portion of the tile
+    ctx.fillStyle = "#5a3a22";          // wooden frame
+    ctx.fillRect(sx, top, TILE, TILE - 6);
+    ctx.fillStyle = "#b5483f";          // mattress
+    ctx.fillRect(sx + 1, top + 2, TILE - 2, TILE - 9);
+    ctx.fillStyle = "#d96a5e";          // mattress highlight
+    ctx.fillRect(sx + 1, top + 2, TILE - 2, 2);
+    ctx.fillStyle = "#eef0f5";          // pillow
+    ctx.fillRect(sx + 1, top + 1, 5, 4);
+    ctx.fillStyle = "#3a2415";          // bedposts
+    ctx.fillRect(sx, top - 2, 2, 4);
+    ctx.fillRect(sx + TILE - 2, top - 2, 2, 4);
   }
 
   // A clump of wheat: green stalks rising to golden grain heads.
@@ -1767,7 +1800,10 @@ export class Renderer {
     // gelatinous rounded body with a translucent gradient
     const g = ctx.createLinearGradient(0, 0, 0, hgt);
     if (flash) { g.addColorStop(0, "#eafff0"); g.addColorStop(1, "#bff0cf"); }
-    else { g.addColorStop(0, "#67d98a"); g.addColorStop(0.55, "#3fa861"); g.addColorStop(1, "#2c7d47"); }
+    else {
+      const p = s.palette || { top: "#67d98a", mid: "#3fa861", bot: "#2c7d47" };
+      g.addColorStop(0, p.top); g.addColorStop(0.55, p.mid); g.addColorStop(1, p.bot);
+    }
     ctx.fillStyle = g;
     this._roundRect(0, 0, w, hgt, Math.min(5, hgt / 2));
     ctx.fill();
@@ -2256,6 +2292,43 @@ export class Renderer {
   }
 
   // --- Farm animals (cow / pig / chicken) ---
+  // Ambient wildlife (birds / butterflies / fireflies). Drawn in world space,
+  // over the light veil so night fireflies actually glow.
+  drawCritters(list) {
+    const ctx = this.ctx;
+    for (const o of list) {
+      const sx = o.x - this.camX, sy = o.y - this.camY;
+      if (o.kind === "bird") {
+        const f = Math.sin(o.flap) * 3;
+        const d = Math.sign(o.vx) || 1;
+        ctx.strokeStyle = "rgba(42,46,58,0.75)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(sx - 4 * d, sy + f);
+        ctx.lineTo(sx, sy - 1);
+        ctx.lineTo(sx + 4 * d, sy + f);
+        ctx.stroke();
+      } else if (o.kind === "butterfly") {
+        const wing = 2 + Math.abs(Math.sin(o.flap)) * 2.5;
+        const col = o.seed < 0.4 ? "#e8913a" : o.seed < 0.7 ? "#d65ab0" : "#5aa0e0";
+        ctx.fillStyle = col;
+        ctx.fillRect(sx - wing, sy - 1, wing, 3);
+        ctx.fillRect(sx, sy - 1, wing, 3);
+        ctx.fillStyle = "rgba(30,30,30,0.8)";
+        ctx.fillRect(sx - 0.5, sy - 1.5, 1, 4);
+      } else { // firefly
+        const g = o.glow;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = `rgba(180,255,110,${0.45 * g})`;
+        ctx.beginPath(); ctx.arc(sx, sy, 3, 0, 6.283); ctx.fill();
+        ctx.fillStyle = `rgba(235,255,180,${0.9 * g})`;
+        ctx.fillRect(sx - 0.5, sy - 0.5, 1.5, 1.5);
+        ctx.restore();
+      }
+    }
+  }
+
   drawAnimal(a) {
     const ctx = this.ctx;
     const sx = Math.round(a.x - this.camX), sy = Math.round(a.y - this.camY);
@@ -2403,11 +2476,34 @@ export class Renderer {
     }
   }
 
-  // A slim mana bar tucked just under the heart row.
+  // A slim hunger bar tucked just under the heart row.
+  drawHunger(player) {
+    if (player.maxFood == null) return;
+    const ctx = this.ctx;
+    const x0 = 12, y0 = 32, w = 190, h = 9;
+    const frac = Math.max(0, Math.min(1, player.food / player.maxFood));
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2);
+    ctx.fillStyle = "#241a10";
+    ctx.fillRect(x0, y0, w, h);
+    const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+    // Bar turns redder as it empties to warn of impending starvation.
+    g.addColorStop(0, frac < 0.3 ? "#9a3a1f" : "#a8612a");
+    g.addColorStop(1, frac < 0.3 ? "#d9612a" : "#f0b24a");
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, w * frac, h);
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(x0, y0, w * frac, 2);
+    ctx.fillStyle = "#f5dca8"; ctx.font = "8px monospace";
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(`FOOD ${Math.round(player.food)}`, x0 + 4, y0 + h / 2 + 0.5);
+  }
+
+  // A slim mana bar tucked just under the hunger row.
   drawMana(player) {
     if (player.maxMana == null) return;
     const ctx = this.ctx;
-    const x0 = 12, y0 = 32, w = 190, h = 9;
+    const x0 = 12, y0 = 45, w = 190, h = 9;
     const frac = Math.max(0, Math.min(1, player.mana / player.maxMana));
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2);
@@ -2921,18 +3017,10 @@ export class Renderer {
     { key: "material", label: "Mats" },
   ];
 
-  // Options bag keeps the long parameter list readable from game.js.
-  drawInventory(inv, opts = {}) {
-    const {
-      recipes = [], creativeItems = null, stationAvailable,
-      mouse, scroll = 0, tab = "all", search = "", searchFocused = false,
-    } = opts;
+  // The 5×6 backpack grid (hotbar rows tinted brighter). Shared by the inventory
+  // and chest screens.
+  _drawBackpack(L, inv) {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(6,8,18,0.72)";
-    ctx.fillRect(0, 0, this.vw, this.vh); // dim the world behind
-    const L = this.invLayout();
-
-    // backpack grid
     for (let i = 0; i < inv.size; i++) {
       const r = this.slotRect(L, i);
       const hot = i < inv.hotbarSize;
@@ -2943,8 +3031,11 @@ export class Renderer {
       ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
       this.drawItemIcon(inv.slots[i], r.x, r.y, r.w);
     }
+  }
 
-    // armor column
+  // The three-slot armor column + total defense readout. Shared as above.
+  _drawArmorColumn(L, inv) {
+    const ctx = this.ctx;
     const aKeys = this._armorKeys();
     const aGlyph = { head: "▲", body: "■", legs: "Ⅱ" };
     for (let i = 0; i < aKeys.length; i++) {
@@ -2965,6 +3056,78 @@ export class Renderer {
     ctx.fillStyle = "#cdd6f4";
     ctx.font = "11px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "top";
     ctx.fillText(`DEF ${inv.totalDefense()}`, L.armorX + L.slot / 2, L.y0 + 3 * (L.slot + L.gap) + 2);
+  }
+
+  // A chest slot's rect, laid out as a 5-wide grid in the right-hand panel where
+  // the crafting list normally sits.
+  chestSlotRect(L, i) {
+    const cols = 5, c = i % cols, r = (i / cols) | 0;
+    return { x: L.craftX + c * (L.slot + L.gap), y: L.y0 + 24 + r * (L.slot + L.gap), w: L.slot, h: L.slot };
+  }
+
+  // The chest screen: backpack + armor on the left, the container's grid on the
+  // right. Items move between them via the shared cursor-held stack.
+  drawChest(inv, chest, mouse) {
+    const ctx = this.ctx;
+    ctx.fillStyle = "rgba(6,8,18,0.72)";
+    ctx.fillRect(0, 0, this.vw, this.vh);
+    const L = this.invLayout();
+
+    this._drawBackpack(L, inv);
+    this._drawArmorColumn(L, inv);
+
+    ctx.fillStyle = "#f9e2af";
+    ctx.font = "13px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.fillText("INVENTORY  ·  click to move items  ·  E/Esc close", L.gridX, L.y0 - 6);
+    ctx.fillText("CHEST", L.craftX, L.y0 + 14);
+
+    for (let i = 0; i < chest.slots.length; i++) {
+      const r = this.chestSlotRect(L, i);
+      ctx.fillStyle = "rgba(40,30,20,0.95)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = "rgba(214,180,120,0.35)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      this.drawItemIcon(chest.slots[i], r.x, r.y, r.w);
+    }
+
+    if (inv.held && mouse) {
+      this.drawItemIcon(inv.held, mouse.x - 18, mouse.y - 18, 36);
+    } else if (mouse) {
+      const hit = this.invHitTest(inv, mouse.x, mouse.y);
+      let key = null;
+      if (hit && hit.type === "slot" && inv.slots[hit.index]) key = inv.slots[hit.index].item;
+      else if (hit && hit.type === "armor" && inv.armor[hit.slot]) key = inv.armor[hit.slot].item;
+      else {
+        const ci = this.chestHitTest(chest, mouse.x, mouse.y);
+        if (ci >= 0 && chest.slots[ci]) key = chest.slots[ci].item;
+      }
+      if (key) this._tooltip(key, mouse.x, mouse.y);
+    }
+  }
+
+  chestHitTest(chest, mx, my) {
+    const L = this.invLayout();
+    for (let i = 0; i < chest.slots.length; i++) {
+      const r = this.chestSlotRect(L, i);
+      if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) return i;
+    }
+    return -1;
+  }
+
+  // Options bag keeps the long parameter list readable from game.js.
+  drawInventory(inv, opts = {}) {
+    const {
+      recipes = [], creativeItems = null, stationAvailable,
+      mouse, scroll = 0, tab = "all", search = "", searchFocused = false,
+    } = opts;
+    const ctx = this.ctx;
+    ctx.fillStyle = "rgba(6,8,18,0.72)";
+    ctx.fillRect(0, 0, this.vw, this.vh); // dim the world behind
+    const L = this.invLayout();
+
+    this._drawBackpack(L, inv);
+    this._drawArmorColumn(L, inv);
 
     // title
     ctx.fillStyle = "#f9e2af";
@@ -3234,6 +3397,121 @@ export class Renderer {
       this.drawItemIcon({ item: d.item, count: 1 }, sx, sy, isize); // shared art = consistent look
       ctx.restore();
     }
+  }
+
+  // Screen-space weather: overcast gloom, drifting fog, falling rain, and the
+  // white flash of lightning — all driven by the Weather object's current state.
+  drawWeatherFx(weather, t, biome = "forest") {
+    if (!weather) return;
+    const I = weather.intensity;
+    if (I <= 0 && weather.flash <= 0) return;
+    const ctx = this.ctx, k = weather.kind;
+    const precip = k === "rain" || k === "storm";
+
+    if (precip && I > 0) {
+      // Overcast wash, tinted by biome: cold haze in tundra, dust in desert.
+      if (biome === "tundra") ctx.fillStyle = `rgba(150,165,190,${0.30 * I})`;
+      else if (biome === "desert") ctx.fillStyle = `rgba(120,95,55,${0.34 * I})`;
+      else ctx.fillStyle = `rgba(30,36,50,${0.38 * I})`;
+      ctx.fillRect(0, 0, this.vw, this.vh);
+    }
+    if (k === "fog" && I > 0) {
+      const g = ctx.createLinearGradient(0, 0, 0, this.vh);
+      g.addColorStop(0, `rgba(202,208,216,${0.10 * I})`);
+      g.addColorStop(1, `rgba(186,194,206,${0.48 * I})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, this.vw, this.vh);
+    }
+    if (precip && I > 0.05) {
+      // The same weather reads differently per biome: a blizzard in the tundra,
+      // a sandstorm in the desert, plain rain everywhere else.
+      if (biome === "tundra") this._drawSnowfall(I, t);
+      else if (biome === "desert") this._drawSandstorm(I, t);
+      else this._drawRain(I, k === "storm", t);
+    }
+    if (weather.flash > 0) {
+      ctx.fillStyle = `rgba(220,228,255,${0.5 * weather.flash})`;
+      ctx.fillRect(0, 0, this.vw, this.vh);
+    }
+  }
+
+  // A faint, always-on color wash so each biome has its own mood on screen.
+  drawBiomeTint(biome, daylight) {
+    if (biome === "forest") return;
+    const ctx = this.ctx;
+    const a = biome === "desert" ? 0.07 * (0.4 + 0.6 * daylight) : 0.08;
+    ctx.fillStyle = biome === "desert"
+      ? `rgba(232,200,120,${a})`   // warm sun-baked sand
+      : `rgba(150,190,235,${a})`;  // cold blue tundra
+    ctx.fillRect(0, 0, this.vw, this.vh);
+  }
+
+  // Driving snow for tundra storms (denser, slower, whiter than rain).
+  _drawSnowfall(intensity, t) {
+    const ctx = this.ctx;
+    const flakes = this._snow || (this._snow = []);
+    const dt = this._snowT == null ? 0.016 : Math.min(0.05, Math.max(0, t - this._snowT));
+    this._snowT = t;
+    const target = Math.floor(260 * intensity);
+    while (flakes.length < target)
+      flakes.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, sz: 1.5 + Math.random() * 2, sp: 60 + Math.random() * 70, ph: Math.random() * 6.28 });
+    if (flakes.length > target) flakes.length = target;
+    ctx.fillStyle = "rgba(244,250,255,0.85)";
+    for (const f of flakes) {
+      f.y += f.sp * dt;
+      f.x += (Math.sin(t * 1.2 + f.ph) * 26 + 30) * dt; // wind-driven drift
+      if (f.y > this.vh) { f.y = -f.sz; f.x = Math.random() * this.vw * 1.3 - this.vw * 0.15; }
+      else if (f.x > this.vw) f.x -= this.vw;
+      ctx.fillRect(f.x | 0, f.y | 0, f.sz, f.sz);
+    }
+  }
+
+  // Whipping horizontal dust for desert storms.
+  _drawSandstorm(intensity, t) {
+    const ctx = this.ctx;
+    const grains = this._sand || (this._sand = []);
+    const dt = this._sandT == null ? 0.016 : Math.min(0.05, Math.max(0, t - this._sandT));
+    this._sandT = t;
+    const target = Math.floor(300 * intensity);
+    while (grains.length < target)
+      grains.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, len: 6 + Math.random() * 14, sp: 380 + Math.random() * 280, ph: Math.random() * 6.28 });
+    if (grains.length > target) grains.length = target;
+    ctx.strokeStyle = "rgba(214,184,120,0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const g of grains) {
+      g.x += g.sp * dt;
+      g.y += Math.sin(t * 2 + g.ph) * 18 * dt;
+      if (g.x > this.vw) { g.x = -g.len; g.y = Math.random() * this.vh; }
+      ctx.moveTo(g.x, g.y);
+      ctx.lineTo(g.x - g.len, g.y - g.len * 0.18);
+    }
+    ctx.stroke();
+  }
+
+  _drawRain(intensity, storm, t) {
+    const ctx = this.ctx;
+    const drops = this._rain || (this._rain = []);
+    const dt = this._rainT == null ? 0.016 : Math.min(0.05, Math.max(0, t - this._rainT));
+    this._rainT = t;
+    const target = Math.floor((storm ? 220 : 140) * intensity);
+    while (drops.length < target)
+      drops.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, len: 8 + Math.random() * 10, sp: 620 + Math.random() * 320 });
+    if (drops.length > target) drops.length = target;
+
+    const slant = storm ? 3.0 : 2.2; // storms drive the rain at a steeper angle
+    ctx.strokeStyle = storm ? "rgba(175,195,230,0.55)" : "rgba(170,190,225,0.42)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const d of drops) {
+      d.y += d.sp * dt;
+      d.x += (d.sp / slant) * dt;
+      if (d.y > this.vh) { d.y = -d.len; d.x = Math.random() * this.vw * 1.2 - this.vw * 0.1; }
+      else if (d.x > this.vw) d.x -= this.vw;
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - d.len / slant, d.y - d.len);
+    }
+    ctx.stroke();
   }
 
   drawNightVignette(dayT) {
