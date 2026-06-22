@@ -1,7 +1,7 @@
 // Central tunable constants. Tweak gameplay feel here.
 export const TILE = 16;            // pixel size of one tile
 
-export const WORLD_W = 560;        // world width  in tiles
+export const WORLD_W = 910;        // world width  in tiles (stretched for more biomes & build room)
 export const WORLD_H = 200;        // world height in tiles
 
 export const GRAVITY = 1500;       // px/s^2
@@ -28,6 +28,13 @@ export const MAX_HP = 100;
 export const REGEN_DELAY = 5;      // seconds without damage before HP regenerates
 export const REGEN_RATE = 6;       // HP per second once regenerating
 export const IFRAMES = 0.7;        // invulnerability seconds after a hit
+
+// --- Hunger (survival only) ---
+export const MAX_FOOD = 100;            // full belly
+export const HUNGER_DRAIN = 0.55;       // food/sec drained while resting
+export const HUNGER_DRAIN_MOVE = 1.1;   // food/sec while moving/jumping (effort burns more)
+export const STARVE_DPS = 4;            // HP/sec lost while starving (food at 0)
+export const REGEN_FOOD_MIN = 30;       // need at least this much food for HP to passively regen
 
 export const SAFE_FALL_TILES = 9;  // fall shorter than this hurts nothing
 export const FALL_DMG_PER_TILE = 9;// HP lost per tile beyond the safe distance
