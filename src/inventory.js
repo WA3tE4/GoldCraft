@@ -90,6 +90,21 @@ export class Inventory {
     } else if (cur) { this.held = cur; this.slots[i] = null; }
   }
 
+  // Like clickSlot, but operating on an external container array (e.g. a chest).
+  // Shares the cursor-held stack so items flow freely between bag and container.
+  clickContainerSlot(arr, i) {
+    const cur = arr[i];
+    if (this.held) {
+      if (!cur) { arr[i] = this.held; this.held = null; }
+      else if (cur.item === this.held.item) {
+        const max = maxStack(cur.item);
+        const a = Math.min(max - cur.count, this.held.count);
+        cur.count += a; this.held.count -= a;
+        if (this.held.count <= 0) this.held = null;
+      } else { arr[i] = this.held; this.held = cur; } // swap
+    } else if (cur) { this.held = cur; arr[i] = null; }
+  }
+
   clickArmor(slotKey) {
     const cur = this.armor[slotKey];
     if (this.held) {
