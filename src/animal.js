@@ -1,5 +1,6 @@
 import { TILE } from "./config.js";
 import { stepBody } from "./physics.js";
+import { TILE_IDS } from "./tiles.js";
 
 // Passive farm animals that wander the surface. They flee briefly when struck and
 // drop meat (+ hides/feathers) when slain. Chickens are light, flutter-fall, and
@@ -16,14 +17,21 @@ export const ANIMAL_TYPES = {
 export const ANIMAL_KINDS = Object.keys(ANIMAL_TYPES);
 
 export class Animal {
-  constructor(type, tx, ty) {
+  constructor(type, tx, ty, opts = {}) {
     const def = ANIMAL_TYPES[type] || ANIMAL_TYPES.cow;
     this.type = type;
     this.def = def;
     this.x = tx * TILE;
     this.y = ty * TILE;
     this.vx = 0; this.vy = 0;
-    this.w = def.w; this.h = def.h;
+    // Babies are born small and grow into adults; they can't breed until grown.
+    this.baby = !!opts.baby;
+    this.growth = this.baby ? 60 : 0;   // seconds of growing left
+    this.breedCd = this.baby ? 9999 : 25 + Math.random() * 20; // time until ready to mate
+    this.w = this.baby ? Math.max(7, def.w * 0.55 | 0) : def.w;
+    this.h = this.baby ? Math.max(7, def.h * 0.55 | 0) : def.h;
+    this.grazed = false;   // set true the frame the animal nibbles a flora tile
+    this._grazeCd = 1 + Math.random() * 2;
     this.onGround = false;
     this.facing = Math.random() < 0.5 ? -1 : 1;
     this.maxHp = def.hp; this.hp = def.hp;
@@ -41,6 +49,8 @@ export class Animal {
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
+  // A grown animal that's off cooldown and willing to mate.
+  get readyToBreed() { return !this.baby && this.breedCd <= 0; }
 
   hurt(dmg, kx = 0) {
     this.hp -= dmg;
@@ -53,6 +63,19 @@ export class Animal {
   update(world, dt, player) {
     if (this.hurtFlash > 0) this.hurtFlash -= dt;
     this.layEgg = false;
+    this.grazed = false;
+
+    // Babies grow up; their cooldown to mate starts once they're adults.
+    if (this.baby) {
+      this.growth -= dt;
+      if (this.growth <= 0) {
+        this.baby = false;
+        this.w = this.def.w; this.h = this.def.h;
+        this.breedCd = 15 + Math.random() * 15;
+      }
+    } else if (this.breedCd > 0) {
+      this.breedCd -= dt;
+    }
 
     // Spooked right after a hit: bolt away from the player for a moment.
     if (this.hurtFlash > 0) {
@@ -83,6 +106,26 @@ export class Animal {
     this._lastX = this.x;
 
     if (this.onGround && Math.abs(this.vx) > 5) this.animTime += dt * 9;
+
+    // Grazing: a resting animal nibbles nearby grass tufts & flowers, which makes
+    // it ready to breed sooner. (The world regrows flora over time.)
+    if (this.state === "idle" && this.onGround) {
+      this._grazeCd -= dt;
+      if (this._grazeCd <= 0) {
+        this._grazeCd = 1.5 + Math.random() * 2.5;
+        const tx = Math.floor(this.cx / TILE), ty = Math.floor((this.y + this.h - 1) / TILE);
+        const spots = [[tx, ty], [tx, ty - 1], [this.facing > 0 ? tx + 1 : tx - 1, ty]];
+        for (const [gx, gy] of spots) {
+          const id = world.get(gx, gy);
+          if (id === TILE_IDS.TALL_GRASS || id === TILE_IDS.FLOWER || id === TILE_IDS.BERRY_BUSH) {
+            world.set(gx, gy, TILE_IDS.AIR);
+            this.grazed = true;
+            if (this.breedCd > 4) this.breedCd -= 6; // a good meal hastens mating
+            break;
+          }
+        }
+      }
+    }
 
     if (this.def.lays) {
       this._layCd -= dt;
