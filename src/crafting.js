@@ -62,6 +62,8 @@ export const RECIPES = [
   { out: { item: "cloud", count: 8 }, in: [{ item: "glass", count: 1 }, { item: "sand", count: 1 }], station: null },
   { out: { item: "glowstone", count: 2 }, in: [{ item: "glass", count: 1 }, { item: "gold_ingot", count: 1 }, { item: "torch", count: 1 }], station: "workbench" },
   { out: { item: "tv", count: 1 }, in: [{ item: "glass", count: 2 }, { item: "iron_ingot", count: 3 }, { item: "magic_essence", count: 1 }], station: "workbench" },
+  { out: { item: "bed", count: 1 }, in: [{ item: "plank", count: 10 }, { item: "plant_fiber", count: 5 }], station: "workbench" },
+  { out: { item: "chest", count: 1 }, in: [{ item: "plank", count: 8 }], station: "workbench" },
 
   // --- ammo & explosives (furnace = "munitions bench") ---
   { out: { item: "gunpowder", count: 2 }, in: [{ item: "coal", count: 1 }, { item: "sand", count: 1 }], station: "furnace" },
