@@ -49,6 +49,7 @@ export class Input {
     this.uiMode = "play";      // current game UI, set each frame by the game
     this.buildMode = false;    // on a touch device, world taps place instead of mine
     this.uiZones = [];         // canvas rects (hotbar, pause) where a tap is UI-only
+    this.scrollZone = null;    // canvas rect where a vertical drag scrolls a list
     this._touchId = null;      // id of the finger currently driving the world cursor
     this._touchUi = false;     // that finger landed on a UI zone — don't dig the world
     this._initTouch();
@@ -69,6 +70,9 @@ export class Input {
       this.uiZones.some((z) => this.mouse.x >= z.x && this.mouse.x <= z.x + z.w &&
         this.mouse.y >= z.y && this.mouse.y <= z.y + z.h);
 
+    const TAP_SLOP = 12;     // px of movement still treated as a tap, not a drag
+    const SCROLL_STEP = 26;  // px of vertical drag per scroll tick in menus
+
     this.canvas.addEventListener("touchstart", (e) => {
       Sound.unlock();
       reveal();
@@ -76,37 +80,60 @@ export class Input {
         const t = e.changedTouches[0];
         this._touchId = t.identifier;
         setFromTouch(t);
-        // A tap always registers a left edge so canvas UI (hotbar/pause/menus)
-        // is tappable; only engage the held world button off the UI zones.
+        this._touchStartX = t.clientX; this._touchStartY = t.clientY;
+        this._lastClientY = t.clientY;
+        this._touchMoved = false;
+        this._scrollAccum = 0;
         this.mouse.left = false; this.mouse.right = false;
-        this._mouseJust.left = true; // lets canvas UI (hotbar/pause/menus) be tapped
-        this._touchUi = inUiZone();
-        if (!this._touchUi) {
-          if (this.uiMode === "play" && this.buildMode) {
-            // Build mode = right-click: held for placing, edge for eat/use/trade/TV.
-            this.mouse.right = true; this._mouseJust.right = true;
-          } else {
-            this.mouse.left = true; // held for mining/attacking/firing
+        if (this.uiMode === "play") {
+          // Action game: engage immediately. A tap also leaves a left edge so
+          // canvas UI (hotbar/pause) is tappable; held button drives the world.
+          this._mouseJust.left = true;
+          this._touchUi = inUiZone();
+          if (!this._touchUi) {
+            if (this.buildMode) {
+              // Build = right-click: held for placing, edge for eat/use/trade/TV.
+              this.mouse.right = true; this._mouseJust.right = true;
+            } else {
+              this.mouse.left = true; // held for mining/attacking/firing
+            }
           }
         }
+        // In a menu we defer: a tap fires on release, a drag scrolls instead.
       }
       e.preventDefault();
     }, { passive: false });
 
     this.canvas.addEventListener("touchmove", (e) => {
       for (const t of e.changedTouches) {
-        if (t.identifier === this._touchId) { setFromTouch(t); break; }
+        if (t.identifier !== this._touchId) continue;
+        setFromTouch(t);
+        if (Math.hypot(t.clientX - this._touchStartX, t.clientY - this._touchStartY) > TAP_SLOP)
+          this._touchMoved = true;
+        // Drag-to-scroll while a menu list is open (only over the scrollable area).
+        const z = this.scrollZone;
+        const overList = !z || (this.mouse.x >= z.x && this.mouse.x <= z.x + z.w &&
+          this.mouse.y >= z.y && this.mouse.y <= z.y + z.h);
+        if (this.uiMode !== "play" && overList) {
+          this._scrollAccum += this._lastClientY - t.clientY; // finger up => scroll down
+          while (this._scrollAccum >= SCROLL_STEP) { this.wheelDelta += 1; this._scrollAccum -= SCROLL_STEP; }
+          while (this._scrollAccum <= -SCROLL_STEP) { this.wheelDelta -= 1; this._scrollAccum += SCROLL_STEP; }
+        }
+        this._lastClientY = t.clientY;
+        break;
       }
       e.preventDefault();
     }, { passive: false });
 
     const end = (e) => {
       for (const t of e.changedTouches) {
-        if (t.identifier === this._touchId) {
-          this._touchId = null; this._touchUi = false;
-          this.mouse.left = false; this.mouse.right = false;
-          break;
-        }
+        if (t.identifier !== this._touchId) continue;
+        // A clean tap inside a menu fires its click now (on release), so drags
+        // used for scrolling don't accidentally select/craft.
+        if (this.uiMode !== "play" && !this._touchMoved) this._mouseJust.left = true;
+        this._touchId = null; this._touchUi = false;
+        this.mouse.left = false; this.mouse.right = false;
+        break;
       }
     };
     this.canvas.addEventListener("touchend", end);
