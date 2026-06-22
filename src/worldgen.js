@@ -71,6 +71,9 @@ export function generate(world, seed = (Math.random() * 1e9) | 0) {
     }
   }
 
+  // --- 1b. Plains: level a few wide spans into flat building ground ---
+  flattenPlains(world, rng, surface, biome);
+
   // --- 2. Ore veins (deeper = rarer + richer) ---
   // Each entry: id, minDepth below surface, frequency, vein size.
   const ores = [
@@ -118,9 +121,13 @@ export function generate(world, seed = (Math.random() * 1e9) | 0) {
   const castle = buildCastle(world, surface, rng);
   if (castle) npcs.push(...castle.npcs);
 
+  // More settlements & structures for wider worlds (counts scale with width).
+  const wScale = W / 560;
+  const want = (base) => Math.round(base * wScale);
+
   // Farmsteads: tilled fields of crops + a farmer family, kept clear of the castle.
   let farms = 0, fAtt = 0;
-  while (farms < 4 && fAtt < 120) {
+  while (farms < want(4) && fAtt < 200) {
     fAtt++;
     const x = 14 + (rng() * (W - 40) | 0);
     if (isFlatEnough(surface, x, 13) && (!castle || Math.abs(x - castle.cx) > 44)) {
@@ -131,7 +138,7 @@ export function generate(world, seed = (Math.random() * 1e9) | 0) {
 
   // Family cottages: a couple and a trailing baby, some sworn to a local gang.
   let placed = 0, attempts = 0;
-  while (placed < 7 && attempts < 160) {
+  while (placed < want(7) && attempts < 280) {
     attempts++;
     const x = 12 + (rng() * (W - 30) | 0);
     if (isFlatEnough(surface, x, 9) && (!castle || Math.abs(x - castle.cx) > 30)) {
@@ -143,7 +150,7 @@ export function generate(world, seed = (Math.random() * 1e9) | 0) {
   // Roaming wanderers between settlements — lone travellers and gang scouts that
   // make the world feel populated (and give your spells plenty of targets).
   let wand = 0, wAtt = 0;
-  while (wand < 8 && wAtt < 120) {
+  while (wand < want(8) && wAtt < 200) {
     wAtt++;
     const x = 10 + (rng() * (W - 20) | 0);
     if (isFlatEnough(surface, x, 3)) {
@@ -153,12 +160,40 @@ export function generate(world, seed = (Math.random() * 1e9) | 0) {
     }
   }
 
+  // --- 5b. Loot structures: cabins, pyramids, sky islands & crypts, each with
+  // a treasure chest. Their contents are returned so the game can fill them. ---
+  const chests = [];
+  const farFromCastle = (x, d) => !castle || Math.abs(x - castle.cx) > d;
+
+  let cab = 0, cAtt = 0;
+  while (cab < want(3) && cAtt < 200) {
+    cAtt++; const x = 14 + (rng() * (W - 30) | 0);
+    if (isFlatEnough(surface, x, 7) && farFromCastle(x, 40)) { chests.push(buildCabin(world, surface, rng, x)); cab++; }
+  }
+  let pyr = 0, pAtt = 0;
+  while (pyr < want(2) && pAtt < 260) {
+    pAtt++; const x = 20 + (rng() * (W - 50) | 0);
+    if (biome[x] === "desert" && isFlatEnough(surface, x, 14) && farFromCastle(x, 40)) {
+      const c = buildPyramid(world, surface, rng, x); if (c) { chests.push(c); pyr++; }
+    }
+  }
+  let sky = 0, sAtt = 0;
+  while (sky < want(2) && sAtt < 140) {
+    sAtt++; const x = 20 + (rng() * (W - 40) | 0);
+    const c = buildSkyIsland(world, rng, x, surface[x]); if (c) { chests.push(c); sky++; }
+  }
+  let cr = 0, crAtt = 0;
+  while (cr < want(3) && crAtt < 260) {
+    crAtt++; const x = 12 + (rng() * (W - 24) | 0);
+    const c = buildCrypt(world, rng, surface, x); if (c) { chests.push(c); cr++; }
+  }
+
   // --- 6. Boss lair: a bricked-out cavern deep in the caves ---
   const bossLair = carveBossLair(world, rng, surface);
 
   world.recomputeSkyTop();
   const spawnX = Math.floor(W / 2);
-  return { seed, spawnX, surfaceY: surface[spawnX], surface, npcs, castle, bossLair };
+  return { seed, spawnX, surfaceY: surface[spawnX], surface, npcs, castle, bossLair, chests };
 }
 
 // Hollow out a wide, bricked chamber low in the world and light it with torches.
@@ -195,6 +230,31 @@ function carveBossLair(world, rng, surface) {
   world.set(cx + halfW - 1, floor - 1, TILE_IDS.GLOWSTONE);
 
   return { x: cx, y: floor - 1 };
+}
+
+// Level several wide spans of surface to a constant height, clearing the air
+// above and packing solid ground below — flat, inviting spots to build a base.
+// Scales its count with world width so big worlds get more plains.
+function flattenPlains(world, rng, surface, biome) {
+  const W = world.w;
+  const n = 4 + (rng() * 4 | 0) + Math.floor(W / 320);
+  for (let i = 0; i < n; i++) {
+    const width = 22 + (rng() * 22 | 0);
+    const x = 6 + (rng() * (W - width - 12) | 0);
+    let sum = 0;
+    for (let k = 0; k < width; k++) sum += surface[x + k];
+    const lvl = Math.round(sum / width);
+    for (let k = 0; k < width; k++) {
+      const tx = x + k;
+      const surfId = biome[tx] === "desert" ? TILE_IDS.SAND
+        : biome[tx] === "tundra" ? TILE_IDS.SNOW : TILE_IDS.GRASS;
+      const subId = biome[tx] === "desert" ? TILE_IDS.SAND : TILE_IDS.DIRT;
+      for (let y = lvl - 7; y < lvl; y++) world.set(tx, y, TILE_IDS.AIR); // clear airspace
+      world.set(tx, lvl, surfId);
+      for (let y = lvl + 1; y < lvl + 4; y++) world.set(tx, y, subId);    // solid footing
+      surface[tx] = lvl;
+    }
+  }
 }
 
 function growVein(world, rng, x, y, id, size) {
@@ -518,6 +578,155 @@ function buildCastle(world, surface, rng) {
   // A young prince trailing the queen.
   npcs.push({ home: { x: cx + 2, y: fy }, role: "child", gang: gp, childOf: npcs[1] });
   return { cx, npcs };
+}
+
+// ---------------------------------------------------------------------------
+// LOOT STRUCTURES — each builds some geometry, plants a CHEST tile, and returns
+// { tx, ty, loot } describing the chest's contents for the game to populate.
+// ---------------------------------------------------------------------------
+
+// Per-structure loot tables: each entry rolls independently by `chance`, with a
+// random count in n:[min,max]. rollLoot guarantees at least one item.
+const CABIN_LOOT = [
+  { item: "wood", n: [6, 15], chance: 0.8 },
+  { item: "plank", n: [4, 10], chance: 0.6 },
+  { item: "torch", n: [2, 6], chance: 0.6 },
+  { item: "apple", n: [1, 3], chance: 0.5 },
+  { item: "bread", n: [1, 2], chance: 0.3 },
+  { item: "coal", n: [2, 6], chance: 0.5 },
+  { item: "iron_ore", n: [1, 4], chance: 0.35 },
+  { item: "stone_pickaxe", n: [1, 1], chance: 0.2 },
+  { item: "speed_potion", n: [1, 1], chance: 0.12 },
+];
+const PYRAMID_LOOT = [
+  { item: "gold_ore", n: [2, 6], chance: 0.7 },
+  { item: "gold_ingot", n: [1, 4], chance: 0.5 },
+  { item: "glass", n: [2, 6], chance: 0.4 },
+  { item: "diamond", n: [1, 2], chance: 0.25 },
+  { item: "magic_essence", n: [1, 2], chance: 0.3 },
+  { item: "pistol", n: [1, 1], chance: 0.18 },
+  { item: "gold_helmet", n: [1, 1], chance: 0.12 },
+  { item: "golden_apple", n: [1, 1], chance: 0.1 },
+];
+const SKY_LOOT = [
+  { item: "feather", n: [2, 6], chance: 0.7 },
+  { item: "cloud", n: [6, 16], chance: 0.6 },
+  { item: "magic_essence", n: [1, 3], chance: 0.4 },
+  { item: "diamond", n: [1, 3], chance: 0.3 },
+  { item: "feather_potion", n: [1, 1], chance: 0.3 },
+  { item: "jump_potion", n: [1, 1], chance: 0.25 },
+  { item: "angel_wings", n: [1, 1], chance: 0.08 },
+  { item: "golden_apple", n: [1, 1], chance: 0.12 },
+];
+const CRYPT_LOOT = [
+  { item: "bone", n: [2, 6], chance: 0.7 },
+  { item: "rotten_flesh", n: [1, 4], chance: 0.5 },
+  { item: "iron_ingot", n: [2, 6], chance: 0.5 },
+  { item: "coal", n: [2, 8], chance: 0.5 },
+  { item: "gunpowder", n: [1, 4], chance: 0.35 },
+  { item: "iron_sword", n: [1, 1], chance: 0.18 },
+  { item: "iron_chest", n: [1, 1], chance: 0.12 },
+  { item: "magic_essence", n: [1, 2], chance: 0.2 },
+  { item: "diamond", n: [1, 2], chance: 0.15 },
+];
+
+function rollLoot(rng, table) {
+  const out = [];
+  for (const e of table) {
+    if (rng() < e.chance) {
+      const n = e.n[0] + (rng() * (e.n[1] - e.n[0] + 1) | 0);
+      if (n > 0) out.push({ item: e.item, count: n });
+    }
+  }
+  if (!out.length) { const e = table[rng() * table.length | 0]; out.push({ item: e.item, count: e.n[0] || 1 }); }
+  return out;
+}
+
+// A weathered, roof-broken wood cabin with a torch and a loot chest inside.
+function buildCabin(world, surface, rng, x) {
+  const w = 7, h = 4;
+  let floor = surface[x];
+  for (let i = 0; i < w; i++) floor = Math.max(floor, surface[x + i]);
+  const top = floor - h;
+  for (let dx = 0; dx < w; dx++) {
+    for (let dy = 0; dy <= h; dy++) {
+      const tx = x + dx, ty = top + dy;
+      const edge = dx === 0 || dx === w - 1 || dy === 0 || dy === h;
+      if (edge) {
+        if (dy === 0 && rng() < 0.4) { world.set(tx, ty, TILE_IDS.AIR); continue; } // missing roof planks
+        const door = dx === w - 1 && (dy === h - 1 || dy === h - 2);
+        world.set(tx, ty, door ? TILE_IDS.AIR : TILE_IDS.PLANK);
+        if (door) world.setWall(tx, ty, WALL_IDS.WOOD);
+      } else {
+        world.set(tx, ty, TILE_IDS.AIR);
+        world.setWall(tx, ty, WALL_IDS.WOOD);
+      }
+    }
+  }
+  world.set(x + 1, top + 1, TILE_IDS.TORCH);
+  const ctx = x + w - 2, cty = floor - 1;
+  world.set(ctx, cty, TILE_IDS.CHEST);
+  return { tx: ctx, ty: cty, loot: rollLoot(rng, CABIN_LOOT) };
+}
+
+// A solid sand pyramid with a hollow burial chamber + chest at its base.
+function buildPyramid(world, surface, rng, x) {
+  const hw = 7 + (rng() * 3 | 0);
+  const cx = x + hw;
+  if (cx - hw < 2 || cx + hw >= world.w - 2) return null;
+  let base = surface[cx];
+  for (let i = -hw; i <= hw; i++) base = Math.max(base, surface[cx + i]);
+  for (let level = 0; level <= hw; level++) {
+    const halfw = hw - level, ty = base - level;
+    for (let dx = -halfw; dx <= halfw; dx++) world.set(cx + dx, ty, TILE_IDS.SAND);
+  }
+  // Hollow chamber + brick floor, torches and the chest.
+  for (let dy = 1; dy <= 3; dy++) for (let dx = -2; dx <= 2; dx++) world.set(cx + dx, base - dy, TILE_IDS.AIR);
+  for (let dx = -2; dx <= 2; dx++) world.set(cx + dx, base, TILE_IDS.BRICK);
+  world.set(cx - 2, base - 1, TILE_IDS.TORCH);
+  world.set(cx + 2, base - 1, TILE_IDS.TORCH);
+  world.set(cx, base - 1, TILE_IDS.CHEST);
+  return { tx: cx, ty: base - 1, loot: rollLoot(rng, PYRAMID_LOOT) };
+}
+
+// A grassy floating island ringed with cloud, topped by a tree and a chest.
+function buildSkyIsland(world, rng, x, baseSurfaceY) {
+  const r = 5 + (rng() * 3 | 0);
+  const cx = x;
+  if (cx - r < 2 || cx + r >= world.w - 2) return null;
+  const iy = Math.max(8, baseSurfaceY - 30 - (rng() * 14 | 0));
+  for (let dx = -r; dx <= r; dx++) {
+    const colH = Math.round(Math.sqrt(Math.max(0, r * r - dx * dx)));
+    for (let dy = 0; dy <= colH + 1; dy++) {
+      const tx = cx + dx, ty = iy + dy;
+      const id = dy === 0 ? TILE_IDS.GRASS : (dy >= colH ? TILE_IDS.CLOUD : TILE_IDS.DIRT);
+      world.set(tx, ty, id);
+    }
+  }
+  if (world.get(cx - 1, iy) === TILE_IDS.GRASS) placeTree(world, rng, cx - 1, iy);
+  world.set(cx + 2, iy - 1, TILE_IDS.CHEST);
+  return { tx: cx + 2, ty: iy - 1, loot: rollLoot(rng, SKY_LOOT) };
+}
+
+// A brick crypt chamber buried in the stone, lit by torches, holding a chest.
+function buildCrypt(world, rng, surface, x) {
+  const w = 9, h = 5;
+  if (x + w >= world.w - 2) return null;
+  const top = surface[x] + 12 + (rng() * 30 | 0);
+  if (top + h >= world.h - 2) return null;
+  for (let dx = 0; dx < w; dx++) {
+    for (let dy = 0; dy < h; dy++) {
+      const tx = x + dx, ty = top + dy;
+      const edge = dx === 0 || dx === w - 1 || dy === 0 || dy === h - 1;
+      if (edge) world.set(tx, ty, TILE_IDS.BRICK);
+      else { world.set(tx, ty, TILE_IDS.AIR); world.setWall(tx, ty, WALL_IDS.STONE); }
+    }
+  }
+  world.set(x + 2, top + 1, TILE_IDS.TORCH);
+  world.set(x + w - 3, top + 1, TILE_IDS.TORCH);
+  const ctx = x + (w >> 1), cty = top + h - 2;
+  world.set(ctx, cty, TILE_IDS.CHEST);
+  return { tx: ctx, ty: cty, loot: rollLoot(rng, CRYPT_LOOT) };
 }
 
 // Plant a flagpole topped with a waving banner at (x, top).
