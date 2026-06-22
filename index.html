@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Terreria — a tiny Terraria-like</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>GoldCraft</title>
   <style>
     html, body {
       margin: 0;
@@ -15,9 +15,12 @@
       color: #cdd6f4;
     }
     #game {
-      display: block;
+      display: none;            /* shown once a world is started */
       image-rendering: pixelated;
       cursor: crosshair;
+      touch-action: none;       /* we own all gestures; no scroll/zoom */
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
     #help {
       position: fixed;
@@ -28,12 +31,189 @@
       opacity: 0.65;
       pointer-events: none;
       text-shadow: 0 1px 2px #000;
+      display: none;            /* hidden by default; toggle in Settings */
     }
     kbd {
       background: #313244;
       border-radius: 3px;
       padding: 0 4px;
       border: 1px solid #45475a;
+    }
+
+    /* ----- start menu ----- */
+    #menu {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background:
+        radial-gradient(1000px 520px at 50% -8%, rgba(247, 211, 94, 0.10), transparent 60%),
+        radial-gradient(1400px 900px at 50% 118%, #161b33 0%, #0b0d17 55%),
+        #080a12;
+    }
+    /* slow-drifting aurora glow behind the panel */
+    #menu::before {
+      content: "";
+      position: absolute;
+      width: 140vmax; height: 140vmax;
+      top: 50%; left: 50%;
+      background: radial-gradient(closest-side, rgba(66, 87, 168, 0.20), transparent 70%);
+      transform: translate(-50%, -50%);
+      animation: drift 20s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+    @keyframes drift {
+      0%   { transform: translate(-55%, -53%) scale(1); }
+      100% { transform: translate(-45%, -47%) scale(1.18); }
+    }
+    /* soft vignette to focus the center */
+    #menu::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: radial-gradient(125% 125% at 50% 45%, transparent 52%, rgba(0, 0, 0, 0.55));
+      pointer-events: none;
+    }
+    .panel {
+      position: relative;
+      width: min(440px, 92vw);
+      background: linear-gradient(180deg, rgba(23, 27, 42, 0.92), rgba(14, 17, 28, 0.94));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      padding: 32px 28px 20px;
+      animation: rise 0.45s cubic-bezier(.2, .8, .2, 1);
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .brand {
+      text-align: center;
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      margin: 2px 0 0;
+      background: linear-gradient(180deg, #ffe9a3 0%, #f7d35e 52%, #c79a2e 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 2px 0 #6e500f) drop-shadow(0 0 22px rgba(247, 211, 94, 0.30));
+    }
+    .brand-rule {
+      width: 64px; height: 3px; margin: 10px auto 0;
+      border-radius: 2px;
+      background: linear-gradient(90deg, transparent, #f7d35e, transparent);
+      opacity: 0.8;
+    }
+    .tagline { text-align: center; opacity: 0.5; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin: 12px 0 24px; }
+    .menu-btn {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      margin: 8px 0; padding: 14px 16px;
+      font: inherit; font-size: 15px; text-align: left;
+      color: #dfe4f5; background: rgba(27, 32, 48, 0.85);
+      border: 1px solid #2f3550; border-radius: 11px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+    }
+    .menu-btn:hover { background: #232a40; border-color: #5469c4; box-shadow: 0 0 0 1px rgba(84, 105, 196, 0.25), 0 8px 24px rgba(0, 0, 0, 0.35); }
+    .menu-btn:active { transform: translateY(1px); }
+    .menu-btn .ico { font-size: 18px; width: 22px; text-align: center; flex: 0 0 auto; }
+    .menu-btn .txt { flex: 1; }
+    .menu-btn.nav::after { content: "\203A"; opacity: 0.4; font-size: 20px; line-height: 1; }
+    .menu-btn.primary { background: linear-gradient(180deg, #38468a, #2a3358); border-color: #5469c4; color: #fff; }
+    .menu-btn.primary:hover { background: linear-gradient(180deg, #41529c, #324073); }
+    .menu-btn small { display: block; opacity: 0.5; font-size: 11px; margin-top: 3px; }
+    .foot { text-align: center; font-size: 11px; opacity: 0.35; letter-spacing: 1px; margin-top: 18px; }
+    /* stacked label + description (mode picker, saved worlds) */
+    .menu-btn.stack { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .menu-btn.stack small { margin-top: 0; }
+    .menu-btn .mode-title { font-size: 15px; font-weight: 600; }
+    .menu-btn.sel { border-color: #f7d35e; background: #2a2614; }
+    .menu-btn.sel:hover { border-color: #f7d35e; box-shadow: 0 0 0 1px rgba(247, 211, 94, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35); }
+    .menu-btn.sel .mode-title { color: #f7d35e; }
+    .seg .menu-btn { justify-content: center; }
+    .field-label { font-size: 12px; opacity: 0.65; margin: 14px 0 6px; }
+    .text-input {
+      width: 100%; box-sizing: border-box; padding: 11px 12px;
+      font: inherit; color: #cdd6f4; background: #0c0f18;
+      border: 1px solid #2f3550; border-radius: 8px;
+    }
+    .text-input:focus { outline: none; border-color: #4257a8; }
+    .seg { display: flex; gap: 8px; }
+    .seg .menu-btn { text-align: center; }
+    .seg .menu-btn.sel { border-color: #f7d35e; background: #2a2614; }
+    .toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 4px; border-bottom: 1px solid #1d2235;
+    }
+    .toggle:last-of-type { border-bottom: none; }
+    .switch { width: 46px; height: 26px; border-radius: 14px; background: #2f3550; position: relative; cursor: pointer; transition: background 0.15s; flex: 0 0 auto; }
+    .switch.on { background: #4caf6a; }
+    .switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #e6e9f5; transition: left 0.15s; }
+    .switch.on .knob { left: 23px; }
+    .world-row { display: flex; align-items: center; gap: 8px; }
+    .world-row .menu-btn { flex: 1; margin: 6px 0; }
+    .del-btn {
+      flex: 0 0 auto; width: 40px; height: 44px; margin: 6px 0;
+      border: 1px solid #5a2a2a; background: #2a1414; color: #e88; border-radius: 8px; cursor: pointer; font: inherit;
+    }
+    .del-btn:hover { background: #3a1a1a; }
+    .empty { opacity: 0.5; text-align: center; padding: 22px 0; font-size: 13px; }
+    .hint { font-size: 11px; opacity: 0.45; line-height: 1.7; margin-top: 14px; }
+    .err { color: #f38ba8; font-size: 12px; min-height: 16px; margin-top: 6px; }
+
+    /* ----- on-screen touch controls -----
+       Hidden by default. Revealed only on touch devices while in play
+       (body gets .touch on first touch; .playing while a world is open;
+       .ui-open when a canvas menu/inventory is up). */
+    body.touch #help { display: none !important; } /* keyboard hints are moot on touch */
+    #touch { display: none; }
+    body.touch.playing #touch {
+      display: block;
+      position: fixed; inset: 0;
+      pointer-events: none;        /* only the buttons capture touches */
+      z-index: 5;
+      touch-action: none;
+    }
+    /* While a canvas menu is open, hide the play controls and show only Close. */
+    body.touch.playing.ui-open #touch .tc-cluster { display: none; }
+    #touch .tc-close { display: none; }
+    body.touch.playing.ui-open #touch .tc-close { display: flex; }
+    #touch .tc-cluster {
+      position: absolute; bottom: 0;
+      display: flex; align-items: flex-end; gap: 14px;
+      padding: 0 max(18px, env(safe-area-inset-left)) max(18px, env(safe-area-inset-bottom));
+    }
+    #touch .tc-move { left: 0; }
+    #touch .tc-act  { right: 0;
+      padding-right: max(18px, env(safe-area-inset-right));
+      align-items: center; }
+    .tc-btn {
+      pointer-events: auto;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent; touch-action: none;
+      display: flex; align-items: center; justify-content: center;
+      width: 64px; height: 64px; border-radius: 16px;
+      font-size: 26px; line-height: 1; color: #eef1fb;
+      background: rgba(20, 24, 40, 0.42);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(3px);
+      transition: background 0.08s, transform 0.05s;
+    }
+    .tc-btn.held { background: rgba(84, 105, 196, 0.7); transform: scale(0.95); }
+    .tc-jump { width: 84px; height: 84px; font-size: 34px; border-radius: 22px; }
+    .tc-mode { font-size: 28px; }
+    .tc-mode.build { background: rgba(247, 211, 94, 0.30); border-color: #f7d35e; }
+    .tc-bag { width: 56px; height: 56px; font-size: 24px; }
+    #touch .tc-act { flex-direction: column; gap: 12px; }
+    #touch .tc-act .tc-row { display: flex; gap: 12px; }
+    /* Close button (shown only over canvas menus), top-right corner. */
+    .tc-close {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      right: max(12px, env(safe-area-inset-right));
+      width: 52px; height: 52px; font-size: 24px;
     }
   </style>
 </head>
@@ -45,8 +225,28 @@
     <kbd>1</kbd>–<kbd>5</kbd> / scroll select &nbsp;
     <kbd>E</kbd> inventory &amp; craft &nbsp;
     <kbd>M</kbd> mute &nbsp;
-    <kbd>F3</kbd> debug &nbsp; <kbd>F5</kbd> save &nbsp; <kbd>F9</kbd> load
+    <kbd>F3</kbd> debug &nbsp; <kbd>F5</kbd> save &nbsp; <kbd>F9</kbd> load &nbsp; <kbd>F10</kbd> menu
   </div>
-  <script type="module" src="./src/game.js"></script>
+  <div id="menu"></div>
+
+  <!-- On-screen controls for phones/tablets. Wired up in input.js; shown only
+       on touch devices while a world is open. -->
+  <div id="touch" aria-hidden="true">
+    <div class="tc-cluster tc-move">
+      <button class="tc-btn" data-key="ArrowLeft"  aria-label="Move left">◄</button>
+      <button class="tc-btn" data-key="ArrowDown"  aria-label="Down">▼</button>
+      <button class="tc-btn" data-key="ArrowRight" aria-label="Move right">►</button>
+    </div>
+    <div class="tc-cluster tc-act">
+      <div class="tc-row">
+        <button class="tc-btn tc-bag"  data-tap="inv"     aria-label="Inventory">🎒</button>
+        <button class="tc-btn tc-mode" data-toggle="build" aria-label="Toggle mine / build">⛏</button>
+      </div>
+      <button class="tc-btn tc-jump" data-key="Space" aria-label="Jump">▲</button>
+    </div>
+    <button class="tc-btn tc-close" data-tap="esc" aria-label="Close menu">✕</button>
+  </div>
+
+  <script type="module" src="./src/menu.js"></script>
 </body>
 </html>
