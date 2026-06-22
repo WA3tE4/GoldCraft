@@ -4,6 +4,7 @@ import {
   MOVE_ACCEL_GROUND, MOVE_ACCEL_AIR, CLIMB_SPEED, FLY_SPEED,
   SPEED_BUFF_MULT, JUMP_BUFF_MULT, COKE_SPEED_MULT, CRACK_SPEED_MULT,
   MAX_MANA, MANA_REGEN, MANA_REGEN_DELAY,
+  MAX_FOOD, HUNGER_DRAIN, HUNGER_DRAIN_MOVE, STARVE_DPS, REGEN_FOOD_MIN,
 } from "./config.js";
 
 // Buffs that the all-in-one "Godhood Elixir" grants simultaneously.
@@ -51,6 +52,9 @@ export class Player {
     this.maxMana = MAX_MANA;  // spell energy
     this.mana = MAX_MANA;
     this._noCast = MANA_REGEN_DELAY; // time since last spell, gates mana regen
+
+    this.maxFood = MAX_FOOD;  // hunger meter (survival): drains over time, refilled by eating
+    this.food = MAX_FOOD;
   }
 
   // Spend mana if there's enough; returns true if the spell may proceed.
@@ -93,7 +97,8 @@ export class Player {
     if (intent.left) dir -= 1;
     if (intent.right) dir += 1;
     const speedMult = (this.hasBuff("speed") ? SPEED_BUFF_MULT : 1)
-      * (this.hasBuff("flash") ? 2.6 : 1) * this.stimSpeedMult();
+      * (this.hasBuff("flash") ? 2.6 : 1) * this.stimSpeedMult()
+      * (this.hasBuff("chilled") ? 0.55 : 1); // frost slimes & blizzards bog you down
     const target = dir * MOVE_SPEED * speedMult;
     // The Flash accelerates near-instantly — no sluggish wind-up.
     const accel = (this.hasBuff("flash") ? 6000 : (this.onGround ? MOVE_ACCEL_GROUND : MOVE_ACCEL_AIR)) * dt;
@@ -165,8 +170,17 @@ export class Player {
       const rate = this.hasBuff("godhood") ? MANA_REGEN * 4 : MANA_REGEN;
       this.mana = Math.min(this.maxMana, this.mana + rate * dt);
     }
+    // Hunger (survival): drains over time, faster while exerting yourself. An
+    // empty belly stops natural regen and slowly saps health (down to a floor of
+    // 1 HP — starvation alone won't kill you, but it leaves you helpless).
+    if (!this.creative) {
+      const exerting = !this.onGround || (this.onGround && Math.abs(this.vx) > 5);
+      this.food = Math.max(0, this.food - (exerting ? HUNGER_DRAIN_MOVE : HUNGER_DRAIN) * dt);
+      if (this.food <= 0) this.hp = Math.max(1, this.hp - STARVE_DPS * dt);
+    }
+    const fed = this.creative || this.food >= REGEN_FOOD_MIN;
     const regenBuff = this.hasBuff("regen");
-    if ((regenBuff || this._noDamage > REGEN_DELAY) && this.hp < this.maxHp)
+    if ((regenBuff || (fed && this._noDamage > REGEN_DELAY)) && this.hp < this.maxHp)
       this.hp = Math.min(this.maxHp, this.hp + (regenBuff ? 30 : REGEN_RATE) * dt);
 
     // Walk animation only while actually moving on the ground.
