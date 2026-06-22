@@ -17,7 +17,7 @@ export function listWorlds() {
 function writeIndex(arr) { localStorage.setItem(INDEX_KEY, JSON.stringify(arr)); }
 export function worldExists(name) { return listWorlds().some((w) => w.name === name); }
 
-export function saveWorld(name, mode, { world, player, inventory, time, npcs, bossLair, bossDefeated, tvUrls }) {
+export function saveWorld(name, mode, { world, player, inventory, time, npcs, bossLair, bossDefeated, tvUrls, chests }) {
   const savedAt = Date.now();
   const data = {
     v: 5, name, mode, savedAt,
@@ -32,6 +32,7 @@ export function saveWorld(name, mode, { world, player, inventory, time, npcs, bo
     time,
     npcs: npcs || [],
     tvUrls: tvUrls || {},
+    chests: chests || {},
   };
   localStorage.setItem(worldKey(name), JSON.stringify(data));
   const idx = listWorlds().filter((w) => w.name !== name);
