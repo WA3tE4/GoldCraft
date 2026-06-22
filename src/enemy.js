@@ -3,8 +3,9 @@ import { stepBody } from "./physics.js";
 
 // Minimal hostile placeholder: a slime that hops toward the player.
 export class Slime {
-  constructor(tx, ty) {
+  constructor(tx, ty, variant = "normal") {
     this.kind = "slime";
+    this.variant = variant;
     this.x = tx * TILE;
     this.y = ty * TILE;
     this.vx = 0;
@@ -20,6 +21,19 @@ export class Slime {
     this.loot = [{ item: "gel", n: [1, 3] }];
     this.hurtFlash = 0;
     this.dead = false;
+    // Default green jelly; biome variants recolor and add a twist.
+    this.palette = { top: "#67d98a", mid: "#3fa861", bot: "#2c7d47" };
+    if (variant === "frost") {
+      // Tundra slime: icy blue, a bit hardier, and chills the player on contact.
+      this.palette = { top: "#cdecff", mid: "#7fc4ef", bot: "#4f93cf" };
+      this.maxHp = this.hp = 36;
+      this.chill = true;
+    } else if (variant === "sand") {
+      // Desert slime: sandy tan, slightly tougher hit.
+      this.palette = { top: "#ecdcab", mid: "#cdb06a", bot: "#a98a45" };
+      this.maxHp = this.hp = 34;
+      this.touchDmg = 10;
+    }
   }
 
   get cx() { return this.x + this.w / 2; }
