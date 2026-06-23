@@ -14,6 +14,8 @@
 
 ---
 ><img width="1292" height="496" alt="image" src="https://github.com/user-attachments/assets/cf6deaa5-68dd-4e6b-9321-56f8558d064d" />
+><img width="1508" height="739" alt="image" src="https://github.com/user-attachments/assets/580ebb52-add2-4bf4-92ea-d91a1eb2e059" />
+
 
 <!-- 🖼️ IMAGE SUGGESTION: A wide banner/hero screenshot showing the full game world — sky, terrain, caves, torches glowing, player standing near a workbench. Ideally 1200×600px or similar. -->
 <!-- ![Terreria banner](docs/banner.png) -->
